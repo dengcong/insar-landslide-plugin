@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.aux.xml
+qgis_outputs/
+python_outputs/
+audit_report.json
