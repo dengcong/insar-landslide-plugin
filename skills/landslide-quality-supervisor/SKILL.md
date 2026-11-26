@@ -37,6 +37,15 @@ Resolve `<skill-dir>` to the directory containing this SKILL.md. The audit needs
 python3 "<skill-dir>/scripts/audit_geotiff_and_figures.py" --qgis-dir ./qgis_outputs --python-dir ./python_outputs --expected-epsg 32610 --report-out ./audit_report.json
 ```
 
+## Pre-Submission Automated Checks
+
+`scripts/audit_geotiff_and_figures.py` additionally enforces the following before any figure set is declared final:
+
+1. **Dual-format completeness:** every main manuscript figure must have both a 600 DPI `.png` and a non-empty vector `.pdf` — a lone `preview_*.png` fails the gate.
+2. **Text hygiene:** zero occurrences of `placeholder`, `TODO`, or `NaN` across all PDF text objects, scanned with `pymupdf`/`fitz` (`pip install pymupdf`; the check reports SKIP when unavailable — do not treat SKIP as PASS for final submissions).
+3. **CSV sync:** numeric statistics embedded in figure text (lag $\tau$, $r$, $p_{\text{eff}}$, $\mu \pm \sigma$) must match the authoritative `tables/*.csv` values; a displayed statistic absent from every CSV fails the gate.
+4. **Research Highlights length:** every Elsevier Research Highlights bullet must be `<= 85` characters including spaces (checked whenever a highlights `.txt`/`.md` file is present in the audited directories).
+
 ## Gotchas
 
 - **Approving figures with unmasked foreslopes:** Never clear ascending or descending maps over steep terrain (>35 deg) unless geometric distortion masks have been explicitly applied and inspected.

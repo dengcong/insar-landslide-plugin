@@ -33,6 +33,58 @@ plt.rcParams.update({
 })
 
 
+
+DUAL_EXPORT_DPI = 600
+
+
+def save_publication_figure(fig, out_dir, name, dpi=DUAL_EXPORT_DPI):
+    """Export one figure as a high-resolution PNG plus a vector PDF.
+
+    Mandatory output gate: every main manuscript figure is written as both
+    `<name>.png` and `<name>.pdf` at `dpi` with `bbox_inches="tight"`. Never
+    leave a `preview_*.png` as the sole final artifact of a numbered figure.
+    """
+    png = os.path.join(out_dir, f"{name}.png")
+    pdf = os.path.join(out_dir, f"{name}.pdf")
+    fig.savefig(png, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    fig.savefig(pdf, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    return png, pdf
+
+
+def verify_figure_exports(out_dir, names, dpi=DUAL_EXPORT_DPI):
+    """PIL-based pixel/DPI verification of the dual-format exports.
+
+    Returns (all_ok, rows); rows is a printable per-figure status list. The PNG
+    header DPI must read `dpi` (+/- 5) and the `.pdf` counterpart must exist
+    non-empty. Run this before reporting any figure set as final.
+    """
+    from PIL import Image
+    rows, ok = [], True
+    for name in names:
+        png = os.path.join(out_dir, f"{name}.png")
+        pdf = os.path.join(out_dir, f"{name}.pdf")
+        if not os.path.isfile(pdf) or os.path.getsize(pdf) < 2000:
+            rows.append((name, "FAIL: missing/empty PDF"))
+            ok = False
+            continue
+        with Image.open(png) as im:
+            got = im.info.get("dpi", (0, 0))[0]
+            good = abs(got - dpi) < 5
+            ok &= good
+            rows.append((name, f"{'PASS' if good else 'FAIL'}: png {im.size[0]}x{im.size[1]} dpi={got:.0f}, pdf {os.path.getsize(pdf) / 1e3:.0f} KB"))
+    return ok, rows
+
+
+def load_label_stats(csv_path):
+    """Read statistical labels (tau_lag, r, p_eff, mu, sigma, ...) from an
+    authoritative `tables/*.csv` produced upstream. Figure annotations must be
+    formatted from these values at render time — never hardcode statistics into
+    figure text. Returns a dict of the first row (or pass a row selector).
+    """
+    df = pd.read_csv(csv_path)
+    return {str(k): v for k, v in df.iloc[0].items()}
+
+
 def build_demo_dataset(start_str="2015-03-01", fail_str="2017-05-20"):
     start_dt = pd.Timestamp(start_str)
     fail_dt = pd.Timestamp(fail_str)
@@ -123,8 +175,7 @@ def plot_acquisition_timeline(out_dir, df_ts, asc_dates, desc_dates, s1b_start, 
     ax1.set_title("(a) Multi-Source SAR & Hydrological Observation Timeline", fontweight="bold", loc="left")
 
     plt.tight_layout()
-    fig.savefig(os.path.join(out_dir, "Fig2a_Acquisition_Timeline.png"))
-    fig.savefig(os.path.join(out_dir, "Fig2a_Acquisition_Timeline.pdf"))
+    save_publication_figure(fig, out_dir, "Fig2a_Acquisition_Timeline")
     plt.close(fig)
 
 
@@ -160,8 +211,7 @@ def plot_sar_geometry_schematic(out_dir):
     ax.set_title("(b) Side-Looking SAR Geometric Visibility Schematic on Steep Coastal Slope", fontweight="bold", loc="left")
 
     plt.tight_layout()
-    fig.savefig(os.path.join(out_dir, "Fig2b_SAR_Geometry_Schematic.png"))
-    fig.savefig(os.path.join(out_dir, "Fig2b_SAR_Geometry_Schematic.pdf"))
+    save_publication_figure(fig, out_dir, "Fig2b_SAR_Geometry_Schematic")
     plt.close(fig)
 
 
@@ -211,8 +261,7 @@ def plot_spatiotemporal_matrix(out_dir, df_ts, start_dt):
     cbar.set_label(f"Cumulative Displacement Relative to {start_dt.strftime('%Y-%m-%d')} (mm)", fontweight="bold", labelpad=2)
 
     plt.subplots_adjust(left=0.08, right=0.97, top=0.95, bottom=0.15, wspace=0.08, hspace=0.16)
-    fig.savefig(os.path.join(out_dir, "Fig5_Spatiotemporal_3x3_Matrix.png"))
-    fig.savefig(os.path.join(out_dir, "Fig5_Spatiotemporal_3x3_Matrix.pdf"))
+    save_publication_figure(fig, out_dir, "Fig5_Spatiotemporal_3x3_Matrix")
     plt.close(fig)
 
 
@@ -280,8 +329,7 @@ def plot_kinematics_and_lag(out_dir, df_ts, start_dt, fail_dt):
     ax2.set_title("(b) Dual-Axis Velocity Acceleration vs. Antecedent Rainfall Lag Window", fontweight="bold", loc="left")
 
     plt.tight_layout()
-    fig.savefig(os.path.join(out_dir, "Fig6_Kinematics_Driver_Lag.png"))
-    fig.savefig(os.path.join(out_dir, "Fig6_Kinematics_Driver_Lag.pdf"))
+    save_publication_figure(fig, out_dir, "Fig6_Kinematics_Driver_Lag")
     plt.close(fig)
 
 
@@ -299,7 +347,14 @@ def main():
     plot_sar_geometry_schematic(args.out_dir)
     plot_spatiotemporal_matrix(args.out_dir, df_ts, s_dt)
     plot_kinematics_and_lag(args.out_dir, df_ts, s_dt, f_dt)
-    print(f"[insar-figure-python] All figures exported to {args.out_dir}")
+    names = ["Fig2a_Acquisition_Timeline", "Fig2b_SAR_Geometry_Schematic",
+             "Fig5_Spatiotemporal_3x3_Matrix", "Fig6_Kinematics_Driver_Lag"]
+    ok, rows = verify_figure_exports(args.out_dir, names)
+    for n, r in rows:
+        print(f"[verify] {n}: {r}")
+    print(f"[insar-figure-python] All figures exported to {args.out_dir} — export gate {'PASSED' if ok else 'FAILED'}")
+    if not ok:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

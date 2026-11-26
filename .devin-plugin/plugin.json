@@ -1,6 +1,6 @@
 {
   "name": "insar-landslide-suite",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Four-skill closed-loop toolchain for InSAR landslide research: manuscript architecture, PyQGIS geohazard cartography, publication-grade Python figures, and scientific quality supervision.",
   "author": {
     "name": "dengcong"

@@ -40,6 +40,11 @@ QT_QPA_PLATFORM=offscreen xvfb-run -a python3 "<skill-dir>/scripts/qgis_geohazar
 
 For real datasets, omit `--demo` and pass `--dem`, `--vel-asc`, and `--vel-desc` GeoTIFF paths.
 
+## Layout Metadata Hygiene
+
+- **No development strings in exports:** Text items in print layouts, attribution bars, and figure annotations MUST NOT contain development artifacts such as `placeholder`, `TODO`, or `test`. Sweep every layout label before export — `scripts/qgis_geohazard_pipeline.py` validates all `QgsLayoutItemLabel` items automatically and raises on violation.
+- **Honest fallback source labels:** When 1 m LiDAR hillshade is unavailable, never imply LiDAR coverage. Label the actual source explicitly, e.g. `"Hillshade: Copernicus GLO-30 (30 m)"` or `"Hillshade: GLO-30 resampled"` via the `hillshade_source_label()` helper; use `"1 m LiDAR hillshade (NRCan HRDEM)"` only when the raster genuinely derives from HRDEM LiDAR.
+
 ## Gotchas
 
 - **Unmasked layover/shadow pixels:** Never display raw LOS velocities over steep foreslopes without masking layover/shadow zones, as phase decorrelation and geometric folding produce extreme false spikes.

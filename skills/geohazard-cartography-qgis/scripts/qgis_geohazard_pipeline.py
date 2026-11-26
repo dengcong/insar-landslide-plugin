@@ -28,6 +28,34 @@ from qgis.core import (
 from qgis.PyQt.QtGui import QColor, QFont
 
 
+
+# --- Layout Metadata Hygiene (see SKILL.md) -----------------------------------
+# Development artifacts must never reach an exported layout label or
+# attribution bar. Word-boundary matching avoids false positives inside normal
+# words (e.g. "latest", "protest").
+import re as _re
+
+FORBIDDEN_LAYOUT_STRINGS = ("placeholder", "todo", "test")
+_FORBIDDEN_RE = _re.compile(r"\b(" + "|".join(FORBIDDEN_LAYOUT_STRINGS) + r")\b", _re.IGNORECASE)
+
+
+def validate_layout_text(text):
+    """Raise ValueError if a layout label carries development artifacts."""
+    hits = _FORBIDDEN_RE.findall(text or "")
+    if hits:
+        raise ValueError(f"Layout label contains forbidden development string(s) {sorted(set(h.lower() for h in hits))}: {text!r}")
+
+
+def hillshade_source_label(lidar_available, resampled=False):
+    """Explicit attribution string for hillshade panels.
+
+    Never imply LiDAR when 1 m LiDAR is unavailable — label the actual source.
+    """
+    if lidar_available:
+        return "1 m LiDAR hillshade (NRCan HRDEM)"
+    return "Hillshade: GLO-30 resampled" if resampled else "Hillshade: Copernicus GLO-30 (30 m)"
+
+
 def write_geotiff(filepath, array, x_min, y_max, res, epsg=32610, nodata=-9999.0):
     rows, cols = array.shape
     driver = gdal.GetDriverByName("GTiff")
@@ -287,6 +315,10 @@ def export_four_panel_layout(project, panels, extent_rect, out_pdf, out_png, dpi
     scalebar.update()
     scalebar.attemptMove(QgsLayoutPoint(232, 200, QgsUnitTypes.LayoutMillimeters))
     layout.addLayoutItem(scalebar)
+
+    for item in layout.items():
+        if isinstance(item, QgsLayoutItemLabel):
+            validate_layout_text(item.text())
 
     exporter = QgsLayoutExporter(layout)
     pdf_cfg = QgsLayoutExporter.PdfExportSettings()
